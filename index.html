@@ -585,9 +585,8 @@ header {
   <!-- ═══════════════ CANVAS SIDE ═══════════════ -->
   <div class="canvas-side">
 
-    <!-- Upload zone (shown before image loaded) -->
+    <!-- Upload zone (shown before image loaded) — V11: URL-only -->
     <div id="upload-zone" class="upload-zone" onclick="event.stopPropagation()">
-      <input type="file" id="file-input" accept="image/*" style="display:none">
       <span class="upload-icon">🔗</span>
       <h2>Add Your Image</h2>
       <p style="margin-bottom:18px">Paste a Shopify CDN URL or any direct image link</p>
@@ -595,19 +594,18 @@ header {
       <div style="display:flex;gap:8px;max-width:580px;margin:0 auto 14px">
         <input type="text" id="url-input"
           placeholder="https://cdn.shopify.com/s/files/…"
-          style="flex:1;font-family:'DM Mono',monospace;font-size:13px;padding:13px 14px;border:2px solid var(--rust);border-radius:3px;background:white;color:var(--ink);outline:none;min-width:0;box-shadow:0 2px 8px rgba(191,90,40,0.12)"
+          style="flex:1;font-family:'DM Mono',monospace;font-size:13px;padding:13px 14px;border:2px solid var(--rust);border-radius:3px;background:white;color:var(--ink);outline:none;min-width:0;box-shadow:0 2px 8px rgba(28,28,28,0.10)"
           onkeydown="if(event.key==='Enter') loadFromURL()"
           onfocus="this.style.borderColor='var(--rust)';this.style.boxShadow='0 0 0 3px var(--rust-glow)'"
-          onblur="this.style.borderColor='var(--rust)';this.style.boxShadow='0 2px 8px rgba(191,90,40,0.12)'">
+          onblur="this.style.borderColor='var(--rust)';this.style.boxShadow='0 2px 8px rgba(28,28,28,0.10)'">
         <button class="btn primary" onclick="loadFromURL()" style="flex-shrink:0;padding:13px 20px;font-size:12px">Load Image</button>
       </div>
 
-      <div id="url-error" style="display:none;font-size:11px;color:#b03030;margin-bottom:10px;letter-spacing:0.04em"></div>
+      <div id="url-error" style="display:none;font-size:11px;color:var(--danger);margin-bottom:10px;letter-spacing:0.04em"></div>
 
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px">— or —</p>
-      <button class="btn ghost" onclick="document.getElementById('file-input').click()" style="font-size:11px">
-        Upload from computer
-      </button>
+      <p style="font-size:10px;color:var(--muted);margin:0;letter-spacing:0.06em">
+        Image must be hosted publicly — uploads aren't supported because Shopify needs a CDN URL.
+      </p>
     </div>
 
     <!-- Canvas area (shown after image loaded) -->
@@ -656,13 +654,13 @@ header {
       </div>
 
       <div class="field">
+        <label>Product URL *  <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">— Title &amp; Price will auto-fill from Shopify</span></label>
+        <input type="text" id="e-url" placeholder="Paste the product page URL — e.g. https://auramodernhome.com/products/chair" oninput="pushEdit()" onblur="autoFillFromShopify(this.value)">
+      </div>
+      <div class="field">
         <label>Product Name *</label>
         <input type="text" id="e-name" placeholder="e.g. Osaka Coffee Table" maxlength="72" oninput="pushEdit()">
         <div class="char-warning" id="e-name-warn">0 / 72 characters</div>
-      </div>
-      <div class="field">
-        <label>Product URL *</label>
-        <input type="text" id="e-url" placeholder="Paste the product page URL — e.g. https://auramodernhome.com/products/chair" oninput="pushEdit()">
       </div>
       <div class="field">
         <label>Price (optional)</label>
@@ -846,6 +844,7 @@ header {
         </label>
       </div>
 
+
       <div id="saved-notice" style="display:none; font-size:10px; color:var(--sage); margin-top:8px; letter-spacing:0.06em; text-transform:uppercase">
         ✓ Saved as browser default
       </div>
@@ -986,6 +985,15 @@ let previewMode = false; // V7: inline preview state
 
 // Defaults — loaded from localStorage if saved
 const PRESET_COLORS = ['#bf5a28','#1c1c1c','#c09836','#5c7a52','#4a7fb5','#8b3a6b','#efefef','#d2c9c3','#bc9879'];
+
+/* ─────────────────────────────────────────────────────────────────────
+   V12: Embed credit ("Powered by ...") — change here to update everywhere.
+   The link text is FIXED and must not be edited. Only the URL is meant to
+   be swappable later. Output as dofollow (no rel="nofollow"), new tab, secured.
+───────────────────────────────────────────────────────────────────── */
+const CREDIT_URL  = 'https://auramodernhome.com/pages/hotspot-tool';
+const CREDIT_TEXT = 'AURA Modern Home Hotspot Builder';
+
 const FONT_OPTIONS = ['Garamond','Roboto','Arial','Helvetica','Georgia','Times New Roman','Verdana','Tahoma','Trebuchet MS','Courier New','Cormorant Garamond','Inter','Lato','Open Sans','Montserrat'];
 const MAX_TITLE_CHARS = 72;
 let defaults = {
@@ -1170,10 +1178,87 @@ function updateShowPlus(v) {
   renderHotspots();
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   V10: Auto-fill Title + Price from Shopify product URLs
+   Shopify exposes /products/{handle}.js with CORS:* — no proxy needed.
+   Triggered on blur of the Product URL field. Silent on failure.
+   Only fills empty fields — never overwrites the user's typing.
+───────────────────────────────────────────────────────────────────── */
+async function autoFillFromShopify(rawURL) {
+  const url = (rawURL || '').trim();
+  if (!url) return;
+  // Normalize to a real URL — protocol optional
+  let full = url;
+  if (!/^https?:\/\//i.test(full)) full = (full.startsWith('//') ? 'https:' : 'https://') + full.replace(/^\/+/, '');
+  let parsed;
+  try { parsed = new URL(full); } catch (e) { return; }
+
+  // Match /products/{handle} (Shopify handles are lowercase alphanumeric + dashes)
+  const m = parsed.pathname.match(/\/products\/([a-z0-9][a-z0-9-]*)/i);
+  if (!m) return;
+  const handle  = m[1];
+  const jsonURL = parsed.origin + '/products/' + handle + '.js';
+
+  let product;
+  try {
+    const res = await fetch(jsonURL, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) return;
+    product = await res.json();
+  } catch (e) { return; } // CORS blocked, network error, or non-Shopify host → silent
+
+  if (!product || !product.title) return;
+
+  const h = getSelected();
+  if (!h) return;
+
+  const nameEl  = document.getElementById('e-name');
+  const priceEl = document.getElementById('e-price');
+  let filledSomething = false;
+
+  // Fill Title only if currently empty
+  if (!h.name && nameEl && !nameEl.value.trim()) {
+    let title = String(product.title).slice(0, MAX_TITLE_CHARS); // respect 72-char cap
+    h.name = title;
+    nameEl.value = title;
+    filledSomething = true;
+  }
+
+  // Fill Price only if currently empty. Shopify .js price is integer cents.
+  if (!h.price && priceEl && !priceEl.value.trim() && typeof product.price === 'number') {
+    const priceStr = '$' + (product.price / 100).toFixed(2).replace(/\.00$/, '');
+    h.price = priceStr;
+    priceEl.value = priceStr;
+    filledSomething = true;
+  }
+
+  if (filledSomething) {
+    updateNameCounter();
+    renderHotspots(); renderList();
+    showAutoFillBadge();
+  }
+}
+
+function showAutoFillBadge() {
+  let badge = document.getElementById('autofill-badge');
+  if (!badge) {
+    const urlInput = document.getElementById('e-url');
+    if (!urlInput) return;
+    badge = document.createElement('div');
+    badge.id = 'autofill-badge';
+    badge.style.cssText = 'font-size:10px;color:var(--sage);margin-top:4px;letter-spacing:0.05em;font-family:DM Mono,monospace;opacity:0;transition:opacity 0.25s;';
+    badge.textContent = '✓ Auto-filled Title & Price from Shopify';
+    urlInput.parentNode.appendChild(badge);
+  }
+  badge.style.opacity = '1';
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => { badge.style.opacity = '0'; }, 3000);
+}
+
 // V8: image alt text (controls the <img alt="…"> in the generated HTML)
 function updateImageAlt(v) {
   defaults.imageAlt = (v || '').trim() || 'Shop this look';
 }
+
 
 /* ── IMAGE OVERLAY HANDLERS (V5) ── */
 function updateOverlay(key, value) {
@@ -1496,20 +1581,8 @@ function editRingColorFromSwatch(color) {
 }
 
 /* ═══════════════════════════════════════════════
-   IMAGE LOADING — URL or file upload
+   IMAGE LOADING — URL only (V11: file upload removed)
 ═══════════════════════════════════════════════ */
-const fileInput = document.getElementById('file-input');
-
-// Drag-onto-upload-zone still works
-const uploadZone = document.getElementById('upload-zone');
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
-uploadZone.addEventListener('drop', e => {
-  e.preventDefault(); uploadZone.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) loadFromFile(f);
-});
-fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFromFile(e.target.files[0]); });
 
 // ── Load from URL (primary path) ──
 function loadFromURL() {
@@ -1537,13 +1610,6 @@ function showURLError(msg) {
 function showLoadingState(on) {
   const btn = document.querySelector('#upload-zone .btn.primary');
   if (btn) { btn.textContent = on ? 'Loading…' : 'Load Image'; btn.disabled = on; }
-}
-
-// ── Load from file (secondary path) ──
-function loadFromFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => revealImage(e.target.result, null, null, null);
-  reader.readAsDataURL(file);
 }
 
 // ── Core: set the image and show canvas ──
@@ -1578,18 +1644,11 @@ function revealImage(srcForDisplay, srcForOutput, onSuccess, onError) {
   img.src = srcForDisplay;
 }
 
+// V11: full reload — guarantees every bit of state, every DOM event listener,
+// every cached observer is gone. Saved defaults in localStorage still apply.
 function changeImage() {
-  hotspots.splice(0, hotspots.length); // mutate in-place, don't reassign
-  selectedId = null;
-  document.getElementById('upload-zone').style.display = 'block';
-  document.getElementById('canvas-area').style.display = 'none';
-  document.getElementById('edit-panel').style.display = 'none';
-  document.getElementById('output-bar').style.display = 'none';
-  document.getElementById('gen-btn').style.display = 'none';
-  document.getElementById('url-error').style.display = 'none';
-  document.getElementById('url-input').value = '';
-  renderHotspots(); renderList();
-  fileInput.value = '';
+  if (hotspots.length > 0 && !confirm('Start a new image? Any unsaved hotspots will be cleared.')) return;
+  window.location.reload();
 }
 
 /* ═══════════════════════════════════════════════
@@ -1623,15 +1682,13 @@ function openPreview() {
     btn.classList.add('active');
     btn.innerHTML = '✕ Exit Preview';
     placeBtn.classList.remove('active');
-    placeBtn.disabled = true;
     imgWrap.classList.add('view-mode');
-    hint.textContent = 'Live Preview — hover dots';
+    hint.textContent = 'Live Preview — hover dots (click ＋ Place Hotspot to exit)';
   } else {
     mode = 'place';
     btn.classList.remove('active');
     btn.innerHTML = '⧉ Preview';
     placeBtn.classList.add('active');
-    placeBtn.disabled = false;
     imgWrap.classList.remove('view-mode');
     hint.textContent = 'Click image to place';
   }
@@ -1797,6 +1854,11 @@ body { background:#111; display:flex; flex-direction:column; align-items:center;
    MODE (kept minimal — only 'place' used now)
 ═══════════════════════════════════════════════ */
 function setMode(m) {
+  // V11: clicking "Place Hotspot" while in Preview should exit Preview too
+  if (m === 'place' && previewMode) {
+    openPreview(); // toggles preview off (which also sets mode = 'place')
+    return;
+  }
   mode = m;
   document.getElementById('btn-place').classList.toggle('active', m === 'place');
   document.getElementById('mode-hint').textContent = 'Click image to place';
@@ -1821,7 +1883,7 @@ document.getElementById('img-wrap').addEventListener('click', function(e) {
   renderHotspots(); renderList();
   openEditPanel(id);
   document.getElementById('gen-btn').style.display = 'inline-block';
-  document.getElementById('e-name').focus();
+  document.getElementById('e-url').focus();
 });
 
 /* ═══════════════════════════════════════════════
@@ -2131,7 +2193,7 @@ function generateHTML() {
   const priceCSS = popInlineCSS('Price');
   const overlayHTML = buildOverlayHTML(overlay);
 
-  const output = `<!-- Shoppable Image | Built with Hotspot Builder | VERSION: V5 -->
+  const output = `<!-- Shoppable Image | Built with Hotspot Builder | VERSION: V12 -->
 <div id="si-wrap" style="position:relative;display:block;width:100%;max-width:100%;font-family:sans-serif;line-height:0;font-size:0;">
 <img src="${isBase64 ? '[REPLACE_WITH_YOUR_IMAGE_URL]' : imgSrc}" alt="${escHTML(defaults.imageAlt || 'Shop this look')}"${dimAttr} style="display:block;width:100%;height:auto;border-radius:3px;${aspectCSS}">
 ${overlayHTML}
@@ -2229,7 +2291,8 @@ if(window.ResizeObserver){var ro=new ResizeObserver(safeBuild);ro.observe(I);ro.
 if(window.MutationObserver){var mo=new MutationObserver(function(){if(I.complete&&I.naturalWidth)safeBuild();});mo.observe(I,{attributes:true,attributeFilter:['src','srcset']});}
 if(!document.getElementById('si-css')){var s=document.createElement('style');s.id='si-css';s.textContent='#si-wrap{padding:0!important;border:0!important;margin-left:auto!important;margin-right:auto!important;}#si-wrap>img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;object-fit:fill!important;vertical-align:top!important;float:none!important;}@keyframes si-pulse-body{0%,100%{transform:scale(1)}40%{transform:scale(1.22)}70%{transform:scale(0.92)}}@keyframes si-pulse{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.6);opacity:0}}@keyframes si-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes si-ripple{0%{transform:scale(1);opacity:0.6}100%{transform:scale(3);opacity:0}}@keyframes si-beacon-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}@keyframes si-glow{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 14px 8px var(--si-gc,rgba(255,255,255,0.5))}}';document.head.appendChild(s);}
 })();${'<'}/script>
-</div>`;
+</div>
+<p class="si-credit" style="font-size:11px;color:#9a9a9a;font-weight:400;font-family:Arial,sans-serif;letter-spacing:0.02em;line-height:1.5;margin:8px 0 0;padding:0;text-align:right;">Powered by <a href="${escHTML(CREDIT_URL)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:inherit;">${escHTML(CREDIT_TEXT)}</a></p>`;
 
   document.getElementById('output-code').value = output;
   document.getElementById('output-bar').style.display = 'block';
