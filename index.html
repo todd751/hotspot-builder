@@ -289,20 +289,20 @@ header {
   align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-/* Mini dot animations */
-.sdot.s-pulsering { background: transparent !important; border-color: var(--rust); }
+/* Mini dot animations — V9: white on the dark style cards so previews are visible */
+.sdot.s-pulsering { background: transparent !important; border-color: #ffffff; }
 .sdot.s-beacon    { animation: sd-beacon 1.4s ease-in-out infinite; }
-.sdot.s-ring      { background: transparent !important; border-color: var(--rust); }
+.sdot.s-ring      { background: transparent !important; border-color: #ffffff; }
 .sdot.s-glow      { animation: sd-glow 2s ease-in-out infinite; }
 
 .sdot-ring-fx {
   position: absolute; inset: -2px; border-radius: 50%;
-  border: 1.5px dashed rgba(28,28,28,0.8);
+  border: 1.5px dashed rgba(255,255,255,0.85);
   animation: sd-spin 3s linear infinite;
 }
 .sdot-pulsering-fx {
   position: absolute; inset: -3px; border-radius: 50%;
-  border: 1.5px solid var(--rust);
+  border: 1.5px solid #ffffff;
   animation: sd-pulse-ring 1.8s ease-out infinite;
 }
 .sdot-ripple-fx {
@@ -989,7 +989,7 @@ const PRESET_COLORS = ['#bf5a28','#1c1c1c','#c09836','#5c7a52','#4a7fb5','#8b3a6
 const FONT_OPTIONS = ['Garamond','Roboto','Arial','Helvetica','Georgia','Times New Roman','Verdana','Tahoma','Trebuchet MS','Courier New','Cormorant Garamond','Inter','Lato','Open Sans','Montserrat'];
 const MAX_TITLE_CHARS = 72;
 let defaults = {
-  color: localStorage.getItem('hs_color') || '#bf5a28',
+  color: localStorage.getItem('hs_color') || '#bc9879',
   size:  parseInt(localStorage.getItem('hs_size')  || '16'),
   popup: localStorage.getItem('hs_popup') || 'minimal',
   // V7: separate fonts for Title and Price (falls back to old hs_popFont for upgraders)
@@ -1003,7 +1003,7 @@ let defaults = {
   popPriceBold:      localStorage.getItem('hs_popPriceBold')      === 'true',
   popPriceItalic:    localStorage.getItem('hs_popPriceItalic')    !== 'false', // default true
   popPriceUnderline: localStorage.getItem('hs_popPriceUnderline') === 'true',
-  showPlus:          localStorage.getItem('hs_showPlus')          !== 'false', // default true
+  showPlus:          localStorage.getItem('hs_showPlus')          === 'true',  // V8: default false
   imageAlt:          localStorage.getItem('hs_imageAlt')          || 'Shop this look' // V8
 };
 
@@ -1921,8 +1921,9 @@ function renderHotspots() {
     body.appendChild(num);
     dot.appendChild(body);
 
-    // V7: in preview mode, attach a hover popup mirroring the generated HTML output
-    if (previewMode) {
+    // V7/V9: in preview mode, attach a hover popup mirroring the generated output.
+    // V9: only render the popup when there's a Title — otherwise the dot is just a clickable link.
+    if (previewMode && (h.name || '').trim()) {
       const popCSS = getPopupCSS();
       const isCenter = h.angle === 'center';
       const ang = isCenter ? 0 : ((h.angle || 0) * Math.PI / 180);
@@ -1936,7 +1937,7 @@ function renderHotspots() {
       const pop = document.createElement('div');
       pop.className = 'hs-pop';
       pop.style.cssText = 'position:absolute;left:calc(50% + '+ox+'px);top:calc(50% + '+oy+'px);transform:translate('+tx+','+ty+');'+popCSS+'padding:8px 12px;border-radius:4px;min-width:140px;max-width:240px;opacity:0;transition:opacity 0.18s;z-index:20;white-space:normal;overflow-wrap:break-word;word-break:break-word;line-height:1.25;cursor:pointer;pointer-events:none;';
-      pop.innerHTML = '<div style="'+tt+'">'+(h.name || '(no name)')+'</div>'+(h.price ? '<div style="'+pt+';opacity:0.85">'+h.price+'</div>' : '');
+      pop.innerHTML = '<div style="'+tt+'">'+h.name+'</div>'+(h.price ? '<div style="'+pt+';opacity:0.85">'+h.price+'</div>' : '');
       dot.appendChild(pop);
       dot.addEventListener('mouseenter', () => { pop.style.opacity = '1'; pop.style.pointerEvents = 'auto'; });
       dot.addEventListener('mouseleave', e => { if (!pop.contains(e.relatedTarget)) { pop.style.opacity = '0'; pop.style.pointerEvents = 'none'; } });
@@ -2187,22 +2188,30 @@ if(hs==='ring'){
 }
 if(hs!=='ring'&&hs!=='pulsering'&&SHOW_PLUS){var plus=document.createElement('span');plus.style.cssText='color:white;font-size:'+(sz*0.52)+'px;font-weight:300;position:relative;z-index:2;display:flex;align-items:center;justify-content:center;padding-bottom:1px;line-height:1';plus.textContent='+';ring.appendChild(plus);}
 var num=document.createElement('div');num.style.cssText='display:none';num.textContent=i+1;ring.appendChild(num);
-var pop=document.createElement('div');
-var isCenter=h.angle==='center';
-var ang=isCenter?0:((h.angle||0)*Math.PI/180);
-var gap=isCenter?0:(sz/2+12);
-var ox=isCenter?0:Math.round(Math.cos(ang)*gap);
-var oy=isCenter?0:Math.round(Math.sin(ang)*gap);
-var tx=isCenter?'-50%':(ox>=0?'0%':'-100%');
-var ty=isCenter?'-50%':(oy>=0?'0%':'-100%');
-pop.style.cssText='position:absolute;left:calc(50% + '+ox+'px);top:calc(50% + '+oy+'px);transform:translate('+tx+','+ty+');'+popCSS+'padding:8px 12px;border-radius:4px;min-width:140px;max-width:240px;opacity:0;transition:opacity 0.18s;z-index:20;white-space:normal;overflow-wrap:break-word;word-break:break-word;line-height:1.25;cursor:pointer;';
-pop.innerHTML='<div style="'+TT+'">'+h.name+'</div>'+(h.price?'<div style="'+PT+';opacity:0.85">'+h.price+'</div>':'');
-d.appendChild(ring);d.appendChild(pop);
-d.addEventListener('mouseenter',function(){ring.style.transform='scale(1.18)';pop.style.opacity='1'});
-pop.addEventListener('mouseenter',function(){pop.style.opacity='1'});
-d.addEventListener('mouseleave',function(e){if(!pop.contains(e.relatedTarget)){ring.style.transform='';pop.style.opacity='0'}});
-pop.addEventListener('mouseleave',function(e){if(!d.contains(e.relatedTarget)){ring.style.transform='';pop.style.opacity='0'}});
-d.addEventListener('touchstart',function(e){e.preventDefault();pop.style.opacity=pop.style.opacity==='1'?'0':'1'},{passive:false});
+d.appendChild(ring);
+// V9: only render the popup when there's a Title. Empty-title dots = pure click-through to URL.
+if(h.name){
+  var pop=document.createElement('div');
+  var isCenter=h.angle==='center';
+  var ang=isCenter?0:((h.angle||0)*Math.PI/180);
+  var gap=isCenter?0:(sz/2+12);
+  var ox=isCenter?0:Math.round(Math.cos(ang)*gap);
+  var oy=isCenter?0:Math.round(Math.sin(ang)*gap);
+  var tx=isCenter?'-50%':(ox>=0?'0%':'-100%');
+  var ty=isCenter?'-50%':(oy>=0?'0%':'-100%');
+  pop.style.cssText='position:absolute;left:calc(50% + '+ox+'px);top:calc(50% + '+oy+'px);transform:translate('+tx+','+ty+');'+popCSS+'padding:8px 12px;border-radius:4px;min-width:140px;max-width:240px;opacity:0;transition:opacity 0.18s;z-index:20;white-space:normal;overflow-wrap:break-word;word-break:break-word;line-height:1.25;cursor:pointer;';
+  pop.innerHTML='<div style="'+TT+'">'+h.name+'</div>'+(h.price?'<div style="'+PT+';opacity:0.85">'+h.price+'</div>':'');
+  d.appendChild(pop);
+  d.addEventListener('mouseenter',function(){ring.style.transform='scale(1.18)';pop.style.opacity='1'});
+  pop.addEventListener('mouseenter',function(){pop.style.opacity='1'});
+  d.addEventListener('mouseleave',function(e){if(!pop.contains(e.relatedTarget)){ring.style.transform='';pop.style.opacity='0'}});
+  pop.addEventListener('mouseleave',function(e){if(!d.contains(e.relatedTarget)){ring.style.transform='';pop.style.opacity='0'}});
+  d.addEventListener('touchstart',function(e){e.preventDefault();pop.style.opacity=pop.style.opacity==='1'?'0':'1'},{passive:false});
+}else{
+  // No title — just hover-scale feedback, no popup
+  d.addEventListener('mouseenter',function(){ring.style.transform='scale(1.18)'});
+  d.addEventListener('mouseleave',function(){ring.style.transform=''});
+}
 d.addEventListener('click',function(){if(h.url)window.open(h.url,'_blank')});
 ov.appendChild(d);
 });
