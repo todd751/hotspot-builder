@@ -2193,13 +2193,15 @@ function generateHTML() {
   const priceCSS = popInlineCSS('Price');
   const overlayHTML = buildOverlayHTML(overlay);
 
-  const output = `<!-- Shoppable Image | Built with Hotspot Builder | VERSION: V12 -->
-<div id="si-wrap" style="position:relative;display:block;width:100%;max-width:100%;font-family:sans-serif;line-height:0;font-size:0;">
+  const output = `<!-- Shoppable Image | Built with Hotspot Builder | VERSION: V14 -->
+<div class="si-wrap" style="position:relative;display:block;width:100%;max-width:100%;font-family:sans-serif;line-height:0;font-size:0;">
 <img src="${isBase64 ? '[REPLACE_WITH_YOUR_IMAGE_URL]' : imgSrc}" alt="${escHTML(defaults.imageAlt || 'Shop this look')}"${dimAttr} style="display:block;width:100%;height:auto;border-radius:3px;${aspectCSS}">
 ${overlayHTML}
 <script>(function(){
 var D=${data};
-var W=document.getElementById('si-wrap');
+// V14: each embed self-locates via document.currentScript so multiple embeds on the
+// same page don't collide. Previously both used id="si-wrap" which only matches one.
+var W=document.currentScript.parentNode;
 var I=W.querySelector('img');
 var popCSS=${JSON.stringify(popupCSS)};
 var TT=${JSON.stringify(titleCSS)};
@@ -2289,7 +2291,7 @@ var rebuildCount=0;var rebuildTimer=setInterval(function(){build();rebuildCount+
 if(window.ResizeObserver){var ro=new ResizeObserver(safeBuild);ro.observe(I);ro.observe(W);}
 // Handle lazy loaders that swap src without firing load event
 if(window.MutationObserver){var mo=new MutationObserver(function(){if(I.complete&&I.naturalWidth)safeBuild();});mo.observe(I,{attributes:true,attributeFilter:['src','srcset']});}
-if(!document.getElementById('si-css')){var s=document.createElement('style');s.id='si-css';s.textContent='#si-wrap{padding:0!important;border:0!important;margin-left:auto!important;margin-right:auto!important;}#si-wrap>img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;object-fit:fill!important;vertical-align:top!important;float:none!important;}@keyframes si-pulse-body{0%,100%{transform:scale(1)}40%{transform:scale(1.22)}70%{transform:scale(0.92)}}@keyframes si-pulse{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.6);opacity:0}}@keyframes si-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes si-ripple{0%{transform:scale(1);opacity:0.6}100%{transform:scale(3);opacity:0}}@keyframes si-beacon-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}@keyframes si-glow{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 14px 8px var(--si-gc,rgba(255,255,255,0.5))}}';document.head.appendChild(s);}
+if(!document.getElementById('si-css')){var s=document.createElement('style');s.id='si-css';s.textContent='.si-wrap{padding:0!important;border:0!important;margin-left:auto!important;margin-right:auto!important;}.si-wrap>img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;object-fit:fill!important;vertical-align:top!important;float:none!important;}@keyframes si-pulse-body{0%,100%{transform:scale(1)}40%{transform:scale(1.22)}70%{transform:scale(0.92)}}@keyframes si-pulse{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.6);opacity:0}}@keyframes si-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes si-ripple{0%{transform:scale(1);opacity:0.6}100%{transform:scale(3);opacity:0}}@keyframes si-beacon-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}@keyframes si-glow{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 14px 8px var(--si-gc,rgba(255,255,255,0.5))}}';document.head.appendChild(s);}
 })();${'<'}/script>
 </div>
 <p class="si-credit" style="font-size:11px;color:#9a9a9a;font-weight:400;font-family:Arial,sans-serif;letter-spacing:0.02em;line-height:1.5;margin:8px 0 0;padding:0;text-align:right;">Powered by <a href="${escHTML(CREDIT_URL)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:inherit;">${escHTML(CREDIT_TEXT)}</a></p>`;
